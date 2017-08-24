@@ -17,7 +17,7 @@ from collections import OrderedDict
 # PEP 249 module globals
 apilevel = '2.0'
 threadsafety = 2  # Threads may share the module and connections.
-paramstyle = 'pyformat' 
+paramstyle = 'pyformat'
 
 def connect(*args, **kwargs):
     """Constructor for creating a connection to the database. See class :py:class:`Connection` for
@@ -35,11 +35,11 @@ class Connection(object):
     def __init__(self, *args, **kwargs):
         self._kwargs = kwargs
         self._args = args
-                     
+
     def close(self):
-        """Closes active connection to Drill.  """         
+        """Closes active connection to Drill.  """
         self.drill = None
-        
+
     def commit(self):
         """Drill does not support transactions, so this does nothing."""
         pass
@@ -47,7 +47,7 @@ class Connection(object):
     def rollback(self):
         """Drill does not support transactions, so this does nothing."""
         pass
-    
+
     def cursor(self):
         """Return a new :py:class:`Cursor` object using the connection."""
         return Cursor(*self._args, **self._kwargs)
@@ -142,7 +142,7 @@ class Cursor(common.DBAPICursor):
 
     def _fetch_more(self):
         pass
-    
+
     @property
     def description(self):
         """This read-only attribute is a sequence of 7-item sequences.
@@ -187,9 +187,9 @@ class Cursor(common.DBAPICursor):
         return result
 
     def callproc(self):
-        """Drill does not support transactions, so this does nothing."""        
-        raise NotSupportedError("Drill does not support stored procedures")  
-    
+        """Drill does not support transactions, so this does nothing."""
+        raise NotSupportedError("Drill does not support stored procedures")
+
     def execute(self, operation, parameters=None, async=False):
         """Prepare and execute a database operation (query or command).
 
@@ -234,7 +234,7 @@ class Cursor(common.DBAPICursor):
         self._actual_cols = self._extract_fields( self._operation )
         self._columns = self._data.columns
 
-        
+
     def fetchone(self):
         """Fetch the next row of a query result set, returning a single sequence, or ``None`` when
         no more data is available.
@@ -318,8 +318,8 @@ class Cursor(common.DBAPICursor):
 
     def _get_column_types(self):
         columns = self._columns
-        types = {}
         query = self._operation
+        types = {}
 
         formattedQuery = sqlparse.format(query, reindent=True, keyword_case='upper')
         formattedQuery = formattedQuery.split('\n')
@@ -346,10 +346,13 @@ class Cursor(common.DBAPICursor):
 
         fieldCount = 0
         for line in formattedQuery:
+            if line=='': continue #fixed bug
+
             functionMatchObject = re.match(functionPattern, line)
-            if line.startswith( 'SELECT') and starQuery == False:
+
+            if line.startswith('SELECT') and starQuery == False:
                 inSelect = True
-                line = line.replace( 'SELECT', '')
+                line = line.replace('SELECT', '')
 
                 line = line.strip()
                 #remove trailing comma
@@ -357,7 +360,7 @@ class Cursor(common.DBAPICursor):
                     if line[-1:] == ",":
                         line = line[:-1]
                 #Check to see if the field is a function
-                functionRegex = re.match(r'([A-Z0-9_]+)\s?\(', line)
+                functionRegex = re.match(r'([a-zA-Z0-9_]+)\s?\(', line)
                 if functionRegex:
                     functionCandidate = functionRegex.group(1)
                     functionCandidate = functionCandidate.upper()
@@ -439,7 +442,7 @@ class Cursor(common.DBAPICursor):
             fieldCount += 1
 
         #If the query was all functions, return types are known and return the array
-        if len( fields) == 0:
+        if len(fields) == 0:
             return types
 
         typeQuery = "SELECT "
@@ -452,22 +455,22 @@ class Cursor(common.DBAPICursor):
             if fieldCount > 0:
                 typeQuery += ","
 
+            column = columns[fieldCount]
             if starQuery == True:
-                if not columns[fieldCount].startswith( '`'):
-                    typeQuery = typeQuery + "`" + columns[fieldCount] + "`" + ", typeof( `" + columns[fieldCount] + "`) AS `" + \
-                                columns[fieldCount] + "_type`"
+                #BUG: if column is a function, error
+                if not column.startswith( '`'):
+                    typeQuery = typeQuery + "`" + column + "`" + ", typeof( `" + column + "`) AS `" + \
+                                column + "_type`"
                 else:
-                    typeQuery = typeQuery + columns[fieldCount] + ", typeof( " + columns[fieldCount] + ") AS " + \
-                            columns[fieldCount] + "_type"
+                    typeQuery = typeQuery + column + ", typeof( " + column + ") AS " + \
+                            column + "_type"
             else:
                 if not field.startswith( '`'):
-                    typeQuery = typeQuery + " `" + field + "` AS `" + columns[fieldCount] + "`, typeof( `" + field + "` ) AS `" + columns[fieldCount] + "_type`"
-                elif field.startswith( '`') and not columns[fieldCount].startswith( '`'):
-                    typeQuery = typeQuery + " " + field + " AS `" + columns[
-                        fieldCount] + "`, typeof( " + field + " ) AS `" + columns[fieldCount] + "_type`"
+                    typeQuery = typeQuery + " `" + field + "` AS `" + column + "`, typeof( `" + field + "` ) AS `" + column + "_type`"
+                elif field.startswith( '`') and not column.startswith( '`'):
+                    typeQuery = typeQuery + " " + field + " AS `" + column + "`, typeof( " + field + " ) AS `" + column + "_type`"
                 else:
-                    typeQuery = typeQuery + " " + field + " AS " + columns[
-                        fieldCount] + ", typeof( " + field + " ) AS " + columns[fieldCount] + "_type"
+                    typeQuery = typeQuery + " " + field + " AS " + column + ", typeof( " + field + " ) AS " + column + "_type"
 
             fieldCount += 1
 

@@ -39,7 +39,7 @@ _BIG_INT_FUNCTIONS = [
 
 def get_column_types( query ):
 
-    drill = PyDrill(host='localhost', port=8047)
+    drill = PyDrill(host='192.168.0.3', port=18047)
     data = drill.query(query)
     columns = data.columns
     types = {}
@@ -147,8 +147,15 @@ def get_column_types( query ):
 
         if fieldCount > 0:
             typeQuery += ","
-        typeQuery = typeQuery + " " + field + " AS " + columns[fieldCount] + ", typeof( " + field + ") AS " + columns[fieldCount] + "_type"
+
+        column = columns[fieldCount]
+        typeQuery = typeQuery + " " + field + " AS `" + column + "`, typeof( " + field + ") AS " + column + "_type"
         fieldCount += 1
+
+    #Remove Limit clause in From clause
+    limitPattern = r'LIMIT \d+$'
+    if re.search(limitPattern, fromClause):
+        fromClause = re.sub( limitPattern, '', fromClause)
 
     typeQuery += fromClause
     typeQuery += " LIMIT 1"
@@ -166,7 +173,11 @@ def get_column_types( query ):
     return types
 
 
-query2 = "SELECT uadata.ua.AgentNameVersion AS Browser, COUNT( * ) AS BrowserCount FROM (    SELECT parse_user_agent( columns[0] ) AS ua    FROM dfs.drillworkshop.`csv/user-agents.csv` ) AS uadata GROUP BY uadata.ua.AgentNameVersion ORDER BY BrowserCount DESC LIMIT 10"
+query2 = '''
+SELECT avg(`dw_netperformancelogs`.`timespan`) AS `avg`
+FROM `hive.dw`.`dw_netperformancelogs`
+LIMIT 10
+'''
 #create_type_query(query1)
 
 get_column_types(query2)
